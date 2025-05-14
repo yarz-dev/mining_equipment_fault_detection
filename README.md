@@ -1,0 +1,1 @@
+# mining_equipment_fault_detection
