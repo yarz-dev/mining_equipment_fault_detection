@@ -1,4 +1,4 @@
 from typing import Literal
 
 
-ProcessorKinds = Literal['thermal']
+ProcessorKinds = Literal['thermal', 'acoustic']

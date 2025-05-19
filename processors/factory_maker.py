@@ -14,5 +14,8 @@ def make_factory_objects(kind: ProcessorKinds) -> ProcessDataBase:
     if kind == "thermal":
         from processors.thermal import ThermalDatasetProcessor
         return ThermalDatasetProcessor()
+    if kind == "acoustic":
+        from processors.acoustic import AcousticDatasetProcessor
+        return AcousticDatasetProcessor()
     else:
         raise ValueError(f"Unknown kind: {kind}")
