@@ -23,23 +23,25 @@ class AcousticDatasetProcessor(ProcessDataBase):
             # If numpy array
             if isinstance(obj, np.ndarray):
                 # Direct numeric array
-                if obj.dtype != object:
+                if np.issubdtype(obj.dtype, np.number):
                     return obj.flatten()
                 # Object array: descend into elements
                 for elem in obj.flatten():
                     sig = extract_signal(elem)
                     if sig is not None:
                         return sig
-            else:
-                # MATLAB struct or other object: search its attributes
+            # MATLAB struct or other object: search its attributes
+            elif hasattr(obj, '__dict__'):
                 for attr in [a for a in dir(obj) if not a.startswith('_')]:
                     try:
                         val = getattr(obj, attr)
+                        if isinstance(val, np.ndarray) and np.issubdtype(val.dtype, np.number):
+                            return val.flatten()
+                        sig = extract_signal(val)
+                        if sig is not None:
+                            return sig
                     except Exception:
                         continue
-                    sig = extract_signal(val)
-                    if sig is not None:
-                        return sig
             return None
 
         merged_dir = os.path.join(self.output_base_path, "_merged_temp")
@@ -66,17 +68,36 @@ class AcousticDatasetProcessor(ProcessDataBase):
             os.makedirs(class_dir, exist_ok=True)
 
             try:
-                mat = scipy.io.loadmat(file_path, struct_as_record=False, squeeze_me=False)
-                wrapper = mat.get("Signal")
-                if wrapper is None:
-                    print(f"❌ 'Signal' key not found in {file}")
-                    continue
-
-                # Extract signal
-                signal = extract_signal(wrapper)
+                # Load MATLAB file with squeeze_me=True to simplify the structure
+                mat = scipy.io.loadmat(file_path, struct_as_record=False, squeeze_me=True)
+                
+                # Try to find the signal data
+                signal = None
+                
+                # First try the 'Signal' key
+                if 'Signal' in mat:
+                    signal = extract_signal(mat['Signal'])
+                
+                # If not found, try to find any numeric array in the mat file
+                if signal is None:
+                    for key in mat.keys():
+                        if key.startswith('__'):  # Skip MATLAB metadata
+                            continue
+                        val = mat[key]
+                        if isinstance(val, np.ndarray) and np.issubdtype(val.dtype, np.number):
+                            signal = val.flatten()
+                            break
+                
                 if signal is None:
                     print(f"❌ Could not find numeric signal in {file}")
                     continue
+
+                # Ensure signal is numeric and convert to float32
+                if not np.issubdtype(signal.dtype, np.number):
+                    print(f"❌ Non-numeric signal found in {file}")
+                    continue
+                
+                signal = signal.astype(np.float32)
 
                 # Save waveform
                 out_name = os.path.splitext(file)[0] + ".npy"

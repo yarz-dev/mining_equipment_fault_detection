@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Union
 
 
-ProcessorKinds = Literal['thermal', 'acoustic']
+ProcessorKinds = Union['thermal', 'acoustic']
